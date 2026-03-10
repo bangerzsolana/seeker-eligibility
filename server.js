@@ -15,54 +15,20 @@ const db = process.env.DATABASE_URL ? new pg.Pool({
   max: 3,
 }) : null;
 
-const THREE_LAND_PROGRAM = 'HgtiJuEcdN6bN6WyYpamL3QKpyMcF8g8FxutDQNB96J9';
-const HELIUS_API = `https://api.helius.xyz/v0`;
-
-// Count all-time NFT purchases by paging through the wallet's Helius tx history.
-// A purchase = a transaction where the wallet is feePayer AND involves the 3.land program.
-async function getNftCount(wallet) {
-  try {
-    let count = 0;
-    let before = undefined;
-    while (true) {
-      const url = new URL(`${HELIUS_API}/addresses/${wallet}/transactions`);
-      url.searchParams.set('api-key', process.env.HELIUS_API_KEY);
-      url.searchParams.set('limit', '100');
-      if (before) url.searchParams.set('before', before);
-
-      const resp = await fetch(url.toString(), { signal: AbortSignal.timeout(15000) });
-      if (!resp.ok) break;
-      const txs = await resp.json();
-      if (!txs?.length) break;
-
-      for (const tx of txs) {
-        if (tx.feePayer !== wallet) continue;
-        const accounts = tx.accountData?.map(a => a.account) || [];
-        if (accounts.includes(THREE_LAND_PROGRAM)) count++;
-      }
-
-      if (txs.length < 100) break;
-      before = txs[txs.length - 1].signature;
-    }
-    return count;
-  } catch {
-    return null;
-  }
-}
-
 async function getWalletProfile(wallet) {
-  const usernamePromise = db
-    ? db.query('SELECT username FROM wallet_usernames WHERE wallet = $1', [wallet])
-        .then(r => r.rows[0]?.username || null)
-        .catch(() => null)
-    : Promise.resolve(null);
-
-  const [username, nftCount] = await Promise.all([
-    usernamePromise,
-    getNftCount(wallet),
-  ]);
-
-  return { username, nftCount: nftCount ?? 0 };
+  if (!db) return { username: null, nftCount: 0 };
+  try {
+    const [accRow, nftRow] = await Promise.all([
+      db.query('SELECT username FROM wallet_usernames WHERE wallet = $1', [wallet]),
+      db.query('SELECT COUNT(*) AS cnt FROM purchases WHERE buyer = $1', [wallet]),
+    ]);
+    return {
+      username: accRow.rows[0]?.username || null,
+      nftCount: parseInt(nftRow.rows[0]?.cnt || 0),
+    };
+  } catch {
+    return { username: null, nftCount: 0 };
+  }
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
