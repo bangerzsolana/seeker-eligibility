@@ -5,6 +5,31 @@ import { TldParser } from '@onsol/tldparser';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import pg from 'pg';
+
+// Optional DB connection — enriches results with GibMeme account + NFT data
+// Set DATABASE_URL in Railway to enable; app works without it
+const db = process.env.DATABASE_URL ? new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 3,
+}) : null;
+
+async function getWalletProfile(wallet) {
+  if (!db) return { username: null, nftCount: 0 };
+  try {
+    const [accRow, nftRow] = await Promise.all([
+      db.query('SELECT username FROM wallet_usernames WHERE wallet = $1', [wallet]),
+      db.query('SELECT COUNT(*) AS cnt FROM purchases WHERE buyer = $1', [wallet]),
+    ]);
+    return {
+      username: accRow.rows[0]?.username || null,
+      nftCount: parseInt(nftRow.rows[0]?.cnt || 0),
+    };
+  } catch {
+    return { username: null, nftCount: 0 };
+  }
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,8 +71,9 @@ app.get('/api/check/:domain', async (req, res) => {
     const wallet = ownerPubkey.toBase58();
     const tournaments = eligibleMap[wallet] || [];
     const eligible = tournaments.length > 0;
+    const { username, nftCount } = await getWalletProfile(wallet);
 
-    res.json({ domain, wallet, eligible, tournaments });
+    res.json({ domain, wallet, eligible, tournaments, username, nftCount });
   } catch (err) {
     console.error(err);
     res.status(500).json({ domain, error: 'Resolution failed: ' + err.message });

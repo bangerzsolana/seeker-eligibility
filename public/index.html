@@ -117,6 +117,28 @@
       color: #a78bfa;
     }
 
+    .profile {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    .profile-pill {
+      background: #1a1a3a;
+      border: 1px solid #2a2a5a;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      padding: 0.25rem 0.75rem;
+      color: #a78bfa;
+    }
+
+    .profile-pill.no-account {
+      color: #6b7280;
+      border-color: #1f1f3a;
+    }
+
     .tournaments {
       display: flex;
       flex-wrap: wrap;
@@ -179,6 +201,7 @@
     <div class="result" id="result">
       <div class="verdict" id="verdict"></div>
       <div class="wallet" id="walletDisplay"></div>
+      <div class="profile" id="profileDisplay"></div>
       <div class="tournaments" id="tournamentsDisplay"></div>
     </div>
   </div>
@@ -186,6 +209,19 @@
   <p class="footer">Players registered in Seeker tournaments #55–#59 are eligible.</p>
 
   <script>
+    function buildProfile(data) {
+      const parts = [];
+      if (data.username) {
+        parts.push(`<span class="profile-pill">@${data.username}</span>`);
+      } else if (data.username === null && data.nftCount !== undefined) {
+        parts.push(`<span class="profile-pill no-account">No GibMeme account</span>`);
+      }
+      if (data.nftCount > 0) {
+        parts.push(`<span class="profile-pill">${data.nftCount} NFT${data.nftCount !== 1 ? 's' : ''} minted</span>`);
+      }
+      return parts.join('');
+    }
+
     const input = document.getElementById('domainInput');
     input.addEventListener('keydown', e => { if (e.key === 'Enter') checkEligibility(); });
 
@@ -202,6 +238,7 @@
       const resultEl = document.getElementById('result');
       const verdict = document.getElementById('verdict');
       const walletEl = document.getElementById('walletDisplay');
+      const profileEl = document.getElementById('profileDisplay');
       const tournamentsEl = document.getElementById('tournamentsDisplay');
 
       btn.disabled = true;
@@ -223,10 +260,12 @@
           verdict.textContent = '⚠ ' + data.error;
           verdict.className = 'verdict error';
           walletEl.innerHTML = '';
+          profileEl.innerHTML = '';
         } else if (data.eligible) {
           verdict.textContent = '✅ ELIGIBLE';
           verdict.className = 'verdict eligible';
           walletEl.innerHTML = `Wallet: <span>${truncateWallet(data.wallet)}</span>`;
+          profileEl.innerHTML = buildProfile(data);
           for (const t of data.tournaments) {
             const tag = document.createElement('span');
             tag.className = 'tag';
@@ -239,6 +278,7 @@
           walletEl.innerHTML = data.wallet
             ? `Wallet: <span>${truncateWallet(data.wallet)}</span>`
             : '';
+          profileEl.innerHTML = data.wallet ? buildProfile(data) : '';
         }
       } catch (err) {
         spinner.classList.remove('show');
