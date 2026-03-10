@@ -229,6 +229,12 @@
       color: #374151;
       text-align: center;
     }
+  @font-face {
+    font-family: 'LuckiestGuy';
+    src: url('/LuckiestGuy-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+  }
   </style>
 </head>
 <body>
@@ -336,7 +342,7 @@
             tag.textContent = t;
             tournamentsEl.appendChild(tag);
           }
-          buildShareImage(data.domain, data.username, 'eligible');
+          buildShareImage(data.domain, data.username, 'eligible').catch(() => shareSection.classList.remove('show'));
         } else {
           verdict.textContent = '❌ NOT ELIGIBLE';
           verdict.className = 'verdict ineligible';
@@ -346,7 +352,7 @@
           profileEl.innerHTML = data.wallet ? buildProfile(data) : '';
           if (data.wallet) {
             const state = data.username ? 'ineligible' : 'no-account';
-            buildShareImage(data.domain, data.username, state);
+            buildShareImage(data.domain, data.username, state).catch(() => shareSection.classList.remove('show'));
           }
         }
       } catch (err) {
@@ -374,34 +380,35 @@
 
     let _currentState = 'eligible';
 
-    function buildShareImage(domain, username, state) {
+    async function buildShareImage(domain, username, state) {
       const cfg = STATE_CONFIG[state];
       _currentState = state;
       const label = username ? `@${username}` : (domain.endsWith('.skr') ? domain : domain + '.skr');
 
       const img = new Image();
       img.src = cfg.bg;
-      img.onload = () => {
-        const W = img.naturalWidth;
-        const H = img.naturalHeight;
-        shareCanvas.width  = W;
-        shareCanvas.height = H;
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
 
-        const ctx = shareCanvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, W, H);
+      const W = img.naturalWidth;
+      const H = img.naturalHeight;
+      shareCanvas.width  = W;
+      shareCanvas.height = H;
 
-        const fontSize = Math.round(W * 0.055);
-        ctx.font         = `bold ${fontSize}px 'Courier New', Courier, monospace`;
-        ctx.textAlign    = cfg.align;
-        ctx.textBaseline = 'top';
-        ctx.shadowColor  = 'rgba(0,0,0,0.75)';
-        ctx.shadowBlur   = Math.round(fontSize * 0.3);
-        ctx.fillStyle    = '#ffffff';
-        ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
+      const fontSize = Math.round(W * 0.055);
+      await document.fonts.load(`${fontSize}px LuckiestGuy`);
 
-        shareSection.classList.add('show');
-      };
-      img.onerror = () => { shareSection.classList.remove('show'); };
+      const ctx = shareCanvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, W, H);
+
+      ctx.font         = `${fontSize}px LuckiestGuy`;
+      ctx.textAlign    = cfg.align;
+      ctx.textBaseline = 'top';
+      ctx.shadowColor  = 'rgba(0,0,0,0.75)';
+      ctx.shadowBlur   = Math.round(fontSize * 0.3);
+      ctx.fillStyle    = '#ffffff';
+      ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
+
+      shareSection.classList.add('show');
     }
 
     async function copyShareImage(btn) {
