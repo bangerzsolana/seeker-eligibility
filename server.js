@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import crypto from 'crypto';
 import { Connection } from '@solana/web3.js';
 import { TldParser } from '@onsol/tldparser';
 import { readFileSync, existsSync } from 'fs';
@@ -7,14 +8,108 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import pg from 'pg';
 
-// Optional DB connection — enriches results with GibMeme account + NFT data
-// Set DATABASE_URL in Railway to enable; app works without it
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const RPC_URL   = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
+const PORT      = process.env.PORT || 3000;
+
+const THREE_LAND_ADDRESS = '6ANLCD4JF8Je7YmsoD3dkMSgGeAPQT2o4ob1NVcWQN5y';
+const THREE_LAND_PROGRAM = 'HgtiJuEcdN6bN6WyYpamL3QKpyMcF8g8FxutDQNB96J9';
+
+// ── DB (optional) ─────────────────────────────────────────
 const db = process.env.DATABASE_URL ? new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 3,
 }) : null;
 
+// ── Purchase sync (mirrors dashboard logic) ───────────────
+function anchorDisc(name) {
+  return crypto.createHash('sha256').update(`global:${name}`).digest().slice(0, 8).toString('hex');
+}
+const BUY_PACK_DISC = anchorDisc('buy_pack');
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58decode(str) {
+  let n = 0n;
+  for (const c of str) { const i = B58.indexOf(c); if (i < 0) throw new Error('bad b58'); n = n * 58n + BigInt(i); }
+  const out = [];
+  while (n > 0n) { out.unshift(Number(n & 0xffn)); n >>= 8n; }
+  return Buffer.from(out);
+}
+
+function hasBuyPack(tx) {
+  for (const ix of tx.instructions || []) {
+    if (ix.programId === THREE_LAND_PROGRAM && ix.data) {
+      try { if (b58decode(ix.data).slice(0, 8).toString('hex') === BUY_PACK_DISC) return true; }
+      catch { /* skip */ }
+    }
+  }
+  return false;
+}
+
+function processTx(tx) {
+  const buyerData = (tx.accountData || []).find(ad => ad.account === tx.feePayer);
+  const lamports  = Math.abs(buyerData?.nativeBalanceChange || 0);
+  return { signature: tx.signature, timestamp: tx.timestamp, buyer: tx.feePayer, lamports, sol: lamports / 1e9 };
+}
+
+async function heliusFetch(before = null) {
+  let url = `https://api-mainnet.helius-rpc.com/v0/addresses/${THREE_LAND_ADDRESS}/transactions?api-key=${process.env.HELIUS_API_KEY}&limit=100`;
+  if (before) url += `&before=${before}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!res.ok) throw new Error(`Helius ${res.status}`);
+  return res.json();
+}
+
+async function dbNewestSignature() {
+  if (!db) return null;
+  const { rows } = await db.query('SELECT signature FROM purchases ORDER BY timestamp DESC LIMIT 1');
+  return rows[0]?.signature || null;
+}
+
+async function dbSave(purchases) {
+  if (!db || purchases.length === 0) return;
+  const vals   = purchases.map((_, i) => `($${i*5+1},$${i*5+2},$${i*5+3},$${i*5+4},$${i*5+5})`).join(',');
+  const params = purchases.flatMap(p => [p.signature, p.timestamp, p.buyer, p.lamports, p.sol]);
+  await db.query(
+    `INSERT INTO purchases (signature,timestamp,buyer,lamports,sol) VALUES ${vals} ON CONFLICT (signature) DO NOTHING`,
+    params
+  );
+}
+
+// Fetch any purchases newer than what's in the DB and save them
+async function syncLatestPurchases() {
+  if (!db) return;
+  try {
+    const knownSig = await dbNewestSignature();
+    const newPurchases = [];
+    let before = null;
+
+    for (let page = 0; page < 20; page++) {
+      const txs = await heliusFetch(before);
+      if (!txs?.length) break;
+
+      const stopIdx = knownSig ? txs.findIndex(tx => tx.signature === knownSig) : -1;
+      if (stopIdx >= 0) {
+        newPurchases.push(...txs.slice(0, stopIdx).filter(hasBuyPack).map(processTx));
+        break;
+      }
+
+      newPurchases.push(...txs.filter(hasBuyPack).map(processTx));
+      before = txs[txs.length - 1].signature;
+      if (txs.length < 100) break;
+    }
+
+    if (newPurchases.length > 0) {
+      await dbSave(newPurchases);
+      console.log(`Seeker sync: +${newPurchases.length} new purchases`);
+    }
+  } catch (err) {
+    console.error('Seeker sync error:', err.message);
+  }
+}
+
+// ── Wallet profile ─────────────────────────────────────────
 async function getWalletProfile(wallet) {
   if (!db) return { username: null, nftCount: 0 };
   try {
@@ -31,22 +126,14 @@ async function getWalletProfile(wallet) {
   }
 }
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
-const PORT = process.env.PORT || 3000;
-
-// Load eligible wallets
+// ── App ───────────────────────────────────────────────────
 const eligiblePath = path.join(__dirname, 'eligible-wallets.json');
-if (!existsSync(eligiblePath)) {
-  console.error('eligible-wallets.json not found. Run: npm run build');
-  process.exit(1);
-}
+if (!existsSync(eligiblePath)) { console.error('eligible-wallets.json not found.'); process.exit(1); }
 const eligibleMap = JSON.parse(readFileSync(eligiblePath, 'utf8'));
 console.log(`Loaded ${Object.keys(eligibleMap).length} eligible wallets`);
 
 const connection = new Connection(RPC_URL, 'confirmed');
-const parser = new TldParser(connection);
+const parser     = new TldParser(connection);
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
@@ -56,21 +143,20 @@ app.get('/api/check/:domain', async (req, res) => {
   if (!domain.endsWith('.skr')) domain += '.skr';
 
   try {
+    // Sync latest purchases before querying so fresh mints show up
+    await syncLatestPurchases();
+
     let ownerPubkey;
-    try {
-      ownerPubkey = await parser.getOwnerFromDomainTld(domain);
-    } catch {
-      // tldparser throws when domain doesn't exist
-      ownerPubkey = null;
-    }
+    try { ownerPubkey = await parser.getOwnerFromDomainTld(domain); }
+    catch { ownerPubkey = null; }
 
     if (!ownerPubkey) {
       return res.json({ domain, wallet: null, eligible: false, error: 'Domain not found' });
     }
 
-    const wallet = ownerPubkey.toBase58();
+    const wallet     = ownerPubkey.toBase58();
     const tournaments = eligibleMap[wallet] || [];
-    const eligible = tournaments.length > 0;
+    const eligible   = tournaments.length > 0;
     const { username, nftCount } = await getWalletProfile(wallet);
 
     res.json({ domain, wallet, eligible, tournaments, username, nftCount });
@@ -80,6 +166,4 @@ app.get('/api/check/:domain', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Seeker eligibility checker running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Seeker eligibility checker running on http://localhost:${PORT}`));
