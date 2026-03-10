@@ -260,7 +260,7 @@
     <div class="share-section" id="shareSection">
       <canvas id="shareCanvas"></canvas>
       <div class="share-buttons">
-        <button class="btn-share" onclick="copyShareImage()">Copy Image</button>
+        <button class="btn-share" onclick="copyShareImage(this)">Copy Image</button>
         <button class="btn-share" onclick="downloadShareImage()">Download</button>
       </div>
     </div>
@@ -391,17 +391,18 @@
       };
     }
 
-    async function copyShareImage() {
-      shareCanvas.toBlob(async blob => {
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          const btn = event.target;
-          btn.textContent = 'Copied!';
-          setTimeout(() => btn.textContent = 'Copy Image', 2000);
-        } catch {
-          alert('Copy failed — try Download instead.');
-        }
-      }, 'image/png');
+    async function copyShareImage(btn) {
+      try {
+        // Pass the blob as a Promise inside ClipboardItem so it resolves
+        // within the user-gesture context — required by the Clipboard API.
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': new Promise(resolve => shareCanvas.toBlob(resolve, 'image/png')) })
+        ]);
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Image', 2000);
+      } catch {
+        alert('Copy failed — try Download instead.');
+      }
     }
 
     function downloadShareImage() {
