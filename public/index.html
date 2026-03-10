@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seeker Card Eligibility</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d24;
+      color: #e0e0f0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      letter-spacing: 0.08em;
+      color: #c084fc;
+      margin-bottom: 0.4rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b7280;
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    .card {
+      background: #13132e;
+      border: 1px solid #2a2a5a;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      background: #0d0d24;
+      border: 1px solid #3b3b7a;
+      border-radius: 8px;
+      color: #e0e0f0;
+      font-family: inherit;
+      font-size: 1rem;
+      padding: 0.65rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: #c084fc;
+    }
+
+    input[type="text"]::placeholder {
+      color: #4b5563;
+    }
+
+    button {
+      background: #7c3aed;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 0.65rem 1.4rem;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    button:hover:not(:disabled) { background: #6d28d9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .result {
+      margin-top: 1.8rem;
+      text-align: center;
+      display: none;
+    }
+
+    .result.show { display: block; }
+
+    .verdict {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+
+    .verdict.eligible { color: #4ade80; }
+    .verdict.ineligible { color: #f472b6; }
+    .verdict.error { color: #fb923c; }
+
+    .wallet {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 0.8rem;
+      word-break: break-all;
+    }
+
+    .wallet span {
+      color: #a78bfa;
+    }
+
+    .tournaments {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      justify-content: center;
+    }
+
+    .tag {
+      background: #1e1b4b;
+      border: 1px solid #4338ca;
+      border-radius: 6px;
+      color: #818cf8;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+    }
+
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #3b3b7a;
+      border-top-color: #c084fc;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 1.5rem auto 0;
+    }
+
+    .spinner.show { display: block; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .footer {
+      margin-top: 2.5rem;
+      font-size: 0.72rem;
+      color: #374151;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>SEEKER CARD</h1>
+  <p class="subtitle">Check eligibility for the free Seeker card airdrop</p>
+
+  <div class="card">
+    <div class="input-row">
+      <input
+        type="text"
+        id="domainInput"
+        placeholder="yourname.skr"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="checkBtn" onclick="checkEligibility()">Check</button>
+    </div>
+
+    <div class="spinner" id="spinner"></div>
+
+    <div class="result" id="result">
+      <div class="verdict" id="verdict"></div>
+      <div class="wallet" id="walletDisplay"></div>
+      <div class="tournaments" id="tournamentsDisplay"></div>
+    </div>
+  </div>
+
+  <p class="footer">Players registered in Seeker tournaments #55–#59 are eligible.</p>
+
+  <script>
+    const input = document.getElementById('domainInput');
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') checkEligibility(); });
+
+    function truncateWallet(w) {
+      return w.slice(0, 6) + '...' + w.slice(-4);
+    }
+
+    async function checkEligibility() {
+      const raw = input.value.trim();
+      if (!raw) return;
+
+      const btn = document.getElementById('checkBtn');
+      const spinner = document.getElementById('spinner');
+      const resultEl = document.getElementById('result');
+      const verdict = document.getElementById('verdict');
+      const walletEl = document.getElementById('walletDisplay');
+      const tournamentsEl = document.getElementById('tournamentsDisplay');
+
+      btn.disabled = true;
+      spinner.classList.add('show');
+      resultEl.classList.remove('show');
+
+      let domain = raw.toLowerCase();
+      if (!domain.endsWith('.skr')) domain += '.skr';
+
+      try {
+        const res = await fetch(`/api/check/${encodeURIComponent(domain)}`);
+        const data = await res.json();
+
+        spinner.classList.remove('show');
+        resultEl.classList.add('show');
+        tournamentsEl.innerHTML = '';
+
+        if (data.error && !data.wallet) {
+          verdict.textContent = '⚠ ' + data.error;
+          verdict.className = 'verdict error';
+          walletEl.innerHTML = '';
+        } else if (data.eligible) {
+          verdict.textContent = '✅ ELIGIBLE';
+          verdict.className = 'verdict eligible';
+          walletEl.innerHTML = `Wallet: <span>${truncateWallet(data.wallet)}</span>`;
+          for (const t of data.tournaments) {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = t;
+            tournamentsEl.appendChild(tag);
+          }
+        } else {
+          verdict.textContent = '❌ NOT ELIGIBLE';
+          verdict.className = 'verdict ineligible';
+          walletEl.innerHTML = data.wallet
+            ? `Wallet: <span>${truncateWallet(data.wallet)}</span>`
+            : '';
+        }
+      } catch (err) {
+        spinner.classList.remove('show');
+        resultEl.classList.add('show');
+        verdict.textContent = '⚠ Request failed';
+        verdict.className = 'verdict error';
+        walletEl.innerHTML = '';
+        tournamentsEl.innerHTML = '';
+      }
+
+      btn.disabled = false;
+    }
+  </script>
+</body>
+</html>
