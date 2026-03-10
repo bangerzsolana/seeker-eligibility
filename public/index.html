@@ -188,6 +188,41 @@
     .btn-sync.show { display: inline-block; }
     .btn-sync:hover { border-color: #c084fc; color: #c084fc; }
 
+    .share-section {
+      display: none;
+      margin-top: 1.5rem;
+      text-align: center;
+    }
+    .share-section.show { display: block; }
+
+    #shareCanvas {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid #2a2a5a;
+      display: block;
+      margin: 0 auto 0.9rem;
+    }
+
+    .share-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .btn-share {
+      background: #1e1b4b;
+      border: 1px solid #4338ca;
+      border-radius: 8px;
+      color: #818cf8;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.5rem 1.1rem;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-share:hover { background: #2e2a6e; color: #c7d2fe; }
+
     .footer {
       margin-top: 2.5rem;
       font-size: 0.72rem;
@@ -220,6 +255,14 @@
       <div class="profile" id="profileDisplay"></div>
       <div class="tournaments" id="tournamentsDisplay"></div>
       <button class="btn-sync" id="syncBtn" onclick="checkEligibility()">⟳ Refresh</button>
+    </div>
+
+    <div class="share-section" id="shareSection">
+      <canvas id="shareCanvas"></canvas>
+      <div class="share-buttons">
+        <button class="btn-share" onclick="copyShareImage()">Copy Image</button>
+        <button class="btn-share" onclick="downloadShareImage()">Download</button>
+      </div>
     </div>
   </div>
 
@@ -263,6 +306,7 @@
       syncBtn.classList.remove('show');
       spinner.classList.add('show');
       resultEl.classList.remove('show');
+      document.getElementById('shareSection').classList.remove('show');
 
       let domain = raw.toLowerCase();
       if (!domain.endsWith('.skr')) domain += '.skr';
@@ -275,6 +319,7 @@
         resultEl.classList.add('show');
         tournamentsEl.innerHTML = '';
 
+        shareSection.classList.remove('show');
         if (data.error && !data.wallet) {
           verdict.textContent = '⚠ ' + data.error;
           verdict.className = 'verdict error';
@@ -291,6 +336,7 @@
             tag.textContent = t;
             tournamentsEl.appendChild(tag);
           }
+          buildShareImage(data.domain);
         } else {
           verdict.textContent = '❌ NOT ELIGIBLE';
           verdict.className = 'verdict ineligible';
@@ -310,6 +356,59 @@
 
       btn.disabled = false;
       if (resultEl.classList.contains('show')) syncBtn.classList.add('show');
+    }
+
+    // ── Share image ───────────────────────────────────────────
+    const shareSection = document.getElementById('shareSection');
+    const shareCanvas  = document.getElementById('shareCanvas');
+
+    function buildShareImage(domain) {
+      const img = new Image();
+      img.src = '/seeker-eligible-bg.png';
+      img.onload = () => {
+        const W = img.naturalWidth;   // 1920
+        const H = img.naturalHeight;  // 1080
+        shareCanvas.width  = W;
+        shareCanvas.height = H;
+
+        const ctx = shareCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, W, H);
+
+        // Domain text — top center
+        const label = domain.endsWith('.skr') ? domain : domain + '.skr';
+        const fontSize = Math.round(W * 0.055); // ~105px at 1920w
+        ctx.font = `bold ${fontSize}px 'Courier New', Courier, monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        // Shadow for legibility on any background
+        ctx.shadowColor = 'rgba(0,0,0,0.75)';
+        ctx.shadowBlur  = Math.round(fontSize * 0.3);
+        ctx.fillStyle   = '#ffffff';
+        ctx.fillText(label, W / 2, Math.round(H * 0.06));
+
+        shareSection.classList.add('show');
+      };
+    }
+
+    async function copyShareImage() {
+      shareCanvas.toBlob(async blob => {
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          const btn = event.target;
+          btn.textContent = 'Copied!';
+          setTimeout(() => btn.textContent = 'Copy Image', 2000);
+        } catch {
+          alert('Copy failed — try Download instead.');
+        }
+      }, 'image/png');
+    }
+
+    function downloadShareImage() {
+      const a = document.createElement('a');
+      a.href = shareCanvas.toDataURL('image/png');
+      a.download = 'seeker-eligible.png';
+      a.click();
     }
   </script>
 </body>
