@@ -336,7 +336,7 @@
             tag.textContent = t;
             tournamentsEl.appendChild(tag);
           }
-          buildShareImage(data.domain);
+          buildShareImage(data.domain, data.username, 'eligible');
         } else {
           verdict.textContent = '❌ NOT ELIGIBLE';
           verdict.className = 'verdict ineligible';
@@ -344,6 +344,10 @@
             ? `Wallet: <span>${truncateWallet(data.wallet)}</span>`
             : '';
           profileEl.innerHTML = data.wallet ? buildProfile(data) : '';
+          if (data.wallet) {
+            const state = data.username ? 'ineligible' : 'no-account';
+            buildShareImage(data.domain, data.username, state);
+          }
         }
       } catch (err) {
         spinner.classList.remove('show');
@@ -362,33 +366,42 @@
     const shareSection = document.getElementById('shareSection');
     const shareCanvas  = document.getElementById('shareCanvas');
 
-    function buildShareImage(domain) {
+    const STATE_CONFIG = {
+      'eligible':   { bg: '/seeker-eligible-bg.png',   xPct: 0.05, yPct: 0.08, align: 'left', filename: 'seeker-eligible.png' },
+      'ineligible': { bg: '/seeker-ineligible-bg.png', xPct: 0.54, yPct: 0.08, align: 'left', filename: 'seeker-ineligible.png' },
+      'no-account': { bg: '/seeker-no-account-bg.png', xPct: 0.05, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png' },
+    };
+
+    let _currentState = 'eligible';
+
+    function buildShareImage(domain, username, state) {
+      const cfg = STATE_CONFIG[state];
+      _currentState = state;
+      const label = username ? `@${username}` : (domain.endsWith('.skr') ? domain : domain + '.skr');
+
       const img = new Image();
-      img.src = '/seeker-eligible-bg.png';
+      img.src = cfg.bg;
       img.onload = () => {
-        const W = img.naturalWidth;   // 1920
-        const H = img.naturalHeight;  // 1080
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
         shareCanvas.width  = W;
         shareCanvas.height = H;
 
         const ctx = shareCanvas.getContext('2d');
         ctx.drawImage(img, 0, 0, W, H);
 
-        // Domain text — top center
-        const label = domain.endsWith('.skr') ? domain : domain + '.skr';
-        const fontSize = Math.round(W * 0.055); // ~105px at 1920w
-        ctx.font = `bold ${fontSize}px 'Courier New', Courier, monospace`;
-        ctx.textAlign = 'center';
+        const fontSize = Math.round(W * 0.055);
+        ctx.font         = `bold ${fontSize}px 'Courier New', Courier, monospace`;
+        ctx.textAlign    = cfg.align;
         ctx.textBaseline = 'top';
-
-        // Shadow for legibility on any background
-        ctx.shadowColor = 'rgba(0,0,0,0.75)';
-        ctx.shadowBlur  = Math.round(fontSize * 0.3);
-        ctx.fillStyle   = '#ffffff';
-        ctx.fillText(label, W / 2, Math.round(H * 0.06));
+        ctx.shadowColor  = 'rgba(0,0,0,0.75)';
+        ctx.shadowBlur   = Math.round(fontSize * 0.3);
+        ctx.fillStyle    = '#ffffff';
+        ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
 
         shareSection.classList.add('show');
       };
+      img.onerror = () => { shareSection.classList.remove('show'); };
     }
 
     async function copyShareImage(btn) {
@@ -408,7 +421,7 @@
     function downloadShareImage() {
       const a = document.createElement('a');
       a.href = shareCanvas.toDataURL('image/png');
-      a.download = 'seeker-eligible.png';
+      a.download = STATE_CONFIG[_currentState].filename;
       a.click();
     }
   </script>
