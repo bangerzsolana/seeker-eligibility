@@ -383,7 +383,7 @@
     async function buildShareImage(domain, username, state) {
       const cfg = STATE_CONFIG[state];
       _currentState = state;
-      const label = username ? `@${username}` : (domain.endsWith('.skr') ? domain : domain + '.skr');
+      const label = domain.endsWith('.skr') ? domain : domain + '.skr';
 
       const bgSrc = Array.isArray(cfg.bg)
         ? cfg.bg[Math.floor(Math.random() * cfg.bg.length)]
