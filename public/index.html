@@ -375,7 +375,7 @@
     const STATE_CONFIG = {
       'eligible':   { bg: '/seeker-eligible-bg.png',   xPct: 0.05, yPct: 0.08, align: 'left', filename: 'seeker-eligible.png' },
       'ineligible': { bg: '/seeker-ineligible-bg.png', xPct: 0.54, yPct: 0.08, align: 'left', filename: 'seeker-ineligible.png' },
-      'no-account': { bg: '/seeker-no-account-bg.png', xPct: 0.05, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png' },
+      'no-account': { bg: ['/seeker-no-account-bg-0.png', '/seeker-no-account-bg-1.png', '/seeker-no-account-bg-2.png'], xPct: 0.05, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png' },
     };
 
     let _currentState = 'eligible';
@@ -385,8 +385,12 @@
       _currentState = state;
       const label = username ? `@${username}` : (domain.endsWith('.skr') ? domain : domain + '.skr');
 
+      const bgSrc = Array.isArray(cfg.bg)
+        ? cfg.bg[Math.floor(Math.random() * cfg.bg.length)]
+        : cfg.bg;
+
       const img = new Image();
-      img.src = cfg.bg;
+      img.src = bgSrc;
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
 
       const W = img.naturalWidth;
