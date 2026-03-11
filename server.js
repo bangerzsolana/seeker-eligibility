@@ -109,20 +109,44 @@ async function syncLatestPurchases() {
   }
 }
 
+// ── Tournament number lookup ───────────────────────────────
+async function getTournamentNumbers(tourn_accts) {
+  if (!tourn_accts.length) return [];
+  try {
+    const { PublicKey } = await import('@solana/web3.js');
+    const pubkeys  = tourn_accts.map(a => new PublicKey(a));
+    const accounts = await connection.getMultipleAccountsInfo(pubkeys);
+    const nums = [];
+    for (const acct of accounts) {
+      if (acct?.data?.length > 29) {
+        const n = acct.data.readUInt32LE(26);
+        if (n > 0) nums.push(n);
+      }
+    }
+    return [...new Set(nums)].sort((a, b) => a - b).map(n => `#${n}`);
+  } catch {
+    return [];
+  }
+}
+
 // ── Wallet profile ─────────────────────────────────────────
 async function getWalletProfile(wallet) {
-  if (!db) return { username: null, nftCount: 0 };
+  if (!db) return { username: null, nftCount: 0, playedElsewhere: false, otherTournaments: [] };
   try {
-    const [accRow, nftRow] = await Promise.all([
+    const [accRow, nftRow, tournRow] = await Promise.all([
       db.query('SELECT username FROM wallet_usernames WHERE wallet = $1', [wallet]),
       db.query('SELECT COUNT(*) AS cnt FROM purchases WHERE buyer = $1', [wallet]),
+      db.query('SELECT DISTINCT tourn_acct FROM tourn_events WHERE player = $1 AND type = $2', [wallet, 'register']),
     ]);
+    const otherTournaments = await getTournamentNumbers(tournRow.rows.map(r => r.tourn_acct));
     return {
       username: accRow.rows[0]?.username || null,
       nftCount: parseInt(nftRow.rows[0]?.cnt || 0),
+      playedElsewhere: otherTournaments.length > 0,
+      otherTournaments,
     };
   } catch {
-    return { username: null, nftCount: 0 };
+    return { username: null, nftCount: 0, playedElsewhere: false, otherTournaments: [] };
   }
 }
 
@@ -157,9 +181,9 @@ app.get('/api/check/:domain', async (req, res) => {
     const wallet     = ownerPubkey.toBase58();
     const tournaments = eligibleMap[wallet] || [];
     const eligible   = tournaments.length > 0;
-    const { username, nftCount } = await getWalletProfile(wallet);
+    const { username, nftCount, playedElsewhere, otherTournaments } = await getWalletProfile(wallet);
 
-    res.json({ domain, wallet, eligible, tournaments, username, nftCount });
+    res.json({ domain, wallet, eligible, tournaments, username, nftCount, playedElsewhere, otherTournaments });
   } catch (err) {
     console.error(err);
     res.status(500).json({ domain, error: 'Resolution failed: ' + err.message });

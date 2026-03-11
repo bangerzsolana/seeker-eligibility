@@ -364,6 +364,14 @@
             let state;
             if (!data.username) {
               state = 'no-account';
+            } else if (data.playedElsewhere) {
+              state = 'played-elsewhere';
+              for (const t of (data.otherTournaments || [])) {
+                const tag = document.createElement('span');
+                tag.className = 'tag';
+                tag.textContent = t;
+                tournamentsEl.appendChild(tag);
+              }
             } else if (data.nftCount >= 3) {
               state = 'ineligible-3plus';
             } else if (data.nftCount === 2) {
@@ -395,6 +403,7 @@
 
     const STATE_CONFIG = {
       'eligible':         { bg: ['/seeker-eligible-bg-0.png', '/seeker-eligible-bg-1.png', '/seeker-eligible-bg-2.png'], xPct: 0.10, yPct: 0.13, align: 'left', filename: 'seeker-eligible.png'   },
+      'played-elsewhere': { bg: '/seeker-played-elsewhere-bg.png',  xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-played-elsewhere.png' },
       'ineligible-0':     { bg: '/seeker-ineligible-0-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
       'ineligible-1':     { bg: '/seeker-ineligible-1-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
       'ineligible-2':     { bg: '/seeker-ineligible-2-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
