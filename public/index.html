@@ -196,7 +196,7 @@
     }
     .share-section.show { display: block; }
 
-    .share-text {
+    .share-text { display: none; /* hidden for now */
       font-size: 0.88rem;
       color: #a78bfa;
       margin-bottom: 0.75rem;
@@ -538,17 +538,17 @@
       ctx.fillStyle    = '#ffffff';
       ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
 
-      document.getElementById('shareText').textContent = nextShareText(state);
+      // document.getElementById('shareText').textContent = nextShareText(state); // hidden for now
       shareSection.classList.add('show');
     }
 
     async function copyShareImage(btn) {
-      const text = document.getElementById('shareText').textContent;
+      // const text = document.getElementById('shareText').textContent; // hidden for now
       try {
         await navigator.clipboard.write([
           new ClipboardItem({
             'image/png': new Promise(resolve => shareCanvas.toBlob(resolve, 'image/png')),
-            'text/plain': new Blob([text], { type: 'text/plain' }),
+            // 'text/plain': new Blob([text], { type: 'text/plain' }), // hidden for now
           })
         ]);
         btn.textContent = 'Copied!';
