@@ -477,7 +477,13 @@
       ],
     };
 
-    const _textIdx = { eligible: 0, 'no-account': 0, 'ineligible-account': 0, 'ineligible-cards': 0 };
+    const _LS_KEY = 'skr_text_idx';
+    function _loadIdx() {
+      try { return JSON.parse(localStorage.getItem(_LS_KEY)) || {}; } catch { return {}; }
+    }
+    function _saveIdx(idx) {
+      try { localStorage.setItem(_LS_KEY, JSON.stringify(idx)); } catch {}
+    }
 
     function _poolKey(state) {
       if (state === 'eligible') return 'eligible';
@@ -489,8 +495,11 @@
     function nextShareText(state) {
       const key = _poolKey(state);
       const pool = TEXT_POOLS[key];
-      const text = pool[_textIdx[key] % pool.length];
-      _textIdx[key]++;
+      const idx = _loadIdx();
+      const i = (idx[key] || 0) % pool.length;
+      const text = pool[i];
+      idx[key] = i + 1;
+      _saveIdx(idx);
       return text;
     }
 
