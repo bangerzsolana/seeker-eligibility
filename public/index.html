@@ -393,13 +393,106 @@
     const shareCanvas  = document.getElementById('shareCanvas');
 
     const STATE_CONFIG = {
-      'eligible':         { bg: '/seeker-eligible-bg.png',         xPct: 0.10, yPct: 0.13, align: 'left', filename: 'seeker-eligible.png',    shareText: 'Test Text' },
-      'ineligible-0':     { bg: '/seeker-ineligible-0-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
-      'ineligible-1':     { bg: '/seeker-ineligible-1-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
-      'ineligible-2':     { bg: '/seeker-ineligible-2-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
-      'ineligible-3plus': { bg: '/seeker-ineligible-3plus-bg.png', xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
-      'no-account':       { bg: ['/seeker-no-account-bg-0.png', '/seeker-no-account-bg-1.png', '/seeker-no-account-bg-2.png'], xPct: 0.08, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png', shareText: 'Test Text' },
+      'eligible':         { bg: '/seeker-eligible-bg.png',         xPct: 0.10, yPct: 0.13, align: 'left', filename: 'seeker-eligible.png'   },
+      'ineligible-0':     { bg: '/seeker-ineligible-0-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
+      'ineligible-1':     { bg: '/seeker-ineligible-1-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
+      'ineligible-2':     { bg: '/seeker-ineligible-2-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
+      'ineligible-3plus': { bg: '/seeker-ineligible-3plus-bg.png', xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
+      'no-account':       { bg: ['/seeker-no-account-bg-0.png', '/seeker-no-account-bg-1.png', '/seeker-no-account-bg-2.png'], xPct: 0.08, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png' },
     };
+
+    // ── Share text pools (cycle in order, wrap around) ────────
+    const TEXT_POOLS = {
+      eligible: [
+        "YAAAYYY!!! Congrats my dude", "you got it!!", "you're in", "you can claim the $SKR Card",
+        "$SKR Card coming your way", "the $SKR card is yours", "u got it", "you can claim",
+        "you get the $SKR card", "UR IN!!!!!!!", "LESSGOOO you're eligible!!!",
+        "yup yup yup — $SKR card is YOURS", "you're in 🎉", "claimed!! congrats dude",
+        "oh you KNOW you got it", "ur eligible ur eligible ur eligible!!!",
+        "the $SKR card is calling your name", "W. absolute W. go claim your card!!",
+        "you did the thing and now you get the thing 🙌", "ok legends only in here. go claim!!",
+        "let's GO 🔥", "ur in!! 🏆", "W move 😤", "🎉 go claim!!", "go get it!!", "it's yours",
+        "claim it!!", "you're locked in 🔒", "no cap you're eligible", "straight up eligible",
+        "yup. that's you 🫵", "ur the one", "it's giving eligible 🏆", "congrats fr",
+        "the card is YOURS go claim", "verified 🔥", "yep. you're in.", "oh we got you 🙌",
+        "u made it!!", "yes YES yes!!", "big W", "the $SKR card said ur name",
+        "ur $SKR card is on the way 🔥", "you showed up 💪", "came to play and won",
+        "done deal", "let's get it 😤", "100% eligible",
+        "🎉", "🥳", "🏆", "🔥", "🫵", "💪", "😤", "🙌",
+      ],
+      'no-account': [
+        "wat?! u have no account.. download Gib Meme on seeker or create an account on gib.meme",
+        "soOooOOoo you have no account. Download the Gib Meme Seeker app!!",
+        "bruh, why you have no account", "u gotta download the app and make an account first 😔",
+        "sorryyyy but you gotta download the app first", "make an account!!!",
+        "no luck here 😞 make an account on our Seeker app!!!", "srry brooo, download the Seeker app!!!",
+        "no account = no vibes. fix that at gib.meme!!", "you're not in the system yet.. gotta make an account first",
+        "hmm we can't find you 😕 create an account on gib.meme!",
+        "oop no account found. download the Seeker app and sign up!",
+        "we looked and looked.. u don't exist yet. make an account!!",
+        "u gotta exist first lol. create an account on gib.meme",
+        "nope nope nope, no account here. download the app!!",
+        "first things first — make an account on gib.meme :)",
+        "can't find u anywhere.. hop on the Seeker app and sign up!",
+        "no account?? 😭 fix that!", "sign up bro 🙏", "👀 no account tho",
+        "u don't exist yet 😬", "go sign up!! 🏃", "u don't exist 👻", "why u no exist 😭",
+        "👀", "😬", "😅", "🫥", "🤷", "🫠", "😶", "🕳️", "💨",
+        "rip 👻", "rip 😭", "oof 😬", "yikes 😅", "bruh 💀", "lol 😶", "nope 🫥",
+        "damn 😔", "welp 😞", "rip rip 😢",
+        "🫣", "😦", "🤐", "😵", "🙈", "😲", "🫤", "😬", "🥲", "💀",
+      ],
+      'ineligible-account': [
+        "aww 😞 looks like you made an account but didn't play in the Seeker tournaments..",
+        "you didn't play the game 😔", "no luck here 😢", "nope 😭",
+        "so close yet so far 😩 you had an account but never played",
+        "you signed up but ghosted the tournament 😤", "account: check. playing: nope 😕",
+        "you were registered but never showed up to play 😔",
+        "the game was RIGHT there and you didn't play 😞",
+        "oof, account but no gameplay.. better luck next time",
+        "you had everything you needed and still didn't play 😩",
+        "we see the account but where were you during the tournament??",
+        "made the account, skipped the fun 😢 rip", "not eligible.. you gotta actually play next time!",
+        "you signed up but never played 😔 next time get in the game!",
+        "no plays 😔 rip", "account yes, plays no 😞", "😩 why no play",
+        "next time play!! 🙏", "so close 💔 play next time",
+        "😔", "😞", "💔", "😩", "🥺",
+      ],
+      'ineligible-cards': [
+        "Aw dude you collected cards but missed submitting to the Seeker tournament 😞",
+        "why you collect & no submit?!?!", "you collect but no play?? 😔", "why no play ?? 😩",
+        "bro you have cards you could be winning battles you should play",
+        "you had the cards THE WHOLE TIME and didn't submit?? 😭",
+        "cards in hand, tournament ignored 😢 next time submit!!",
+        "all that collecting for nothing?? go submit next time!!",
+        "you came, you collected, you didn't submit 😔 rip",
+        "the cards were there. the tournament was there. where were YOU",
+        "having cards and not submitting is actually criminal 😤",
+        "almost doesn't count 😩 submit your cards next time!!",
+        "u were SO close. collect AND submit next time ok?",
+        "why have cards if you're not gonna use them 😞",
+        "next time: collect, submit, WIN. in that order!!",
+        "cards but no submit 😤", "collect AND play!! 🙏", "😭 submit next time",
+        "the cards were RIGHT there 💀", "so close 🃏 but no",
+        "😤", "😭", "🃏", "💀", "🤦",
+      ],
+    };
+
+    const _textIdx = { eligible: 0, 'no-account': 0, 'ineligible-account': 0, 'ineligible-cards': 0 };
+
+    function _poolKey(state) {
+      if (state === 'eligible') return 'eligible';
+      if (state === 'no-account') return 'no-account';
+      if (state === 'ineligible-0') return 'ineligible-account';
+      return 'ineligible-cards';
+    }
+
+    function nextShareText(state) {
+      const key = _poolKey(state);
+      const pool = TEXT_POOLS[key];
+      const text = pool[_textIdx[key] % pool.length];
+      _textIdx[key]++;
+      return text;
+    }
 
     let _currentState = 'eligible';
 
@@ -435,7 +528,7 @@
       ctx.fillStyle    = '#ffffff';
       ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
 
-      document.getElementById('shareText').textContent = cfg.shareText;
+      document.getElementById('shareText').textContent = nextShareText(state);
       shareSection.classList.add('show');
     }
 
