@@ -195,6 +195,14 @@
     }
     .share-section.show { display: block; }
 
+    .share-text {
+      font-size: 0.88rem;
+      color: #a78bfa;
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+      text-align: left;
+    }
+
     #shareCanvas {
       max-width: 100%;
       border-radius: 8px;
@@ -264,6 +272,7 @@
     </div>
 
     <div class="share-section" id="shareSection">
+      <p class="share-text" id="shareText"></p>
       <canvas id="shareCanvas"></canvas>
       <div class="share-buttons">
         <button class="btn-share" onclick="copyShareImage(this)">Copy Image</button>
@@ -384,12 +393,12 @@
     const shareCanvas  = document.getElementById('shareCanvas');
 
     const STATE_CONFIG = {
-      'eligible':   { bg: '/seeker-eligible-bg.png',   xPct: 0.10, yPct: 0.13, align: 'left', filename: 'seeker-eligible.png' },
-      'ineligible-0':     { bg: '/seeker-ineligible-0-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
-      'ineligible-1':     { bg: '/seeker-ineligible-1-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
-      'ineligible-2':     { bg: '/seeker-ineligible-2-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
-      'ineligible-3plus': { bg: '/seeker-ineligible-3plus-bg.png', xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png' },
-      'no-account': { bg: ['/seeker-no-account-bg-0.png', '/seeker-no-account-bg-1.png', '/seeker-no-account-bg-2.png'], xPct: 0.08, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png' },
+      'eligible':         { bg: '/seeker-eligible-bg.png',         xPct: 0.10, yPct: 0.13, align: 'left', filename: 'seeker-eligible.png',    shareText: 'Test Text' },
+      'ineligible-0':     { bg: '/seeker-ineligible-0-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
+      'ineligible-1':     { bg: '/seeker-ineligible-1-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
+      'ineligible-2':     { bg: '/seeker-ineligible-2-bg.png',     xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
+      'ineligible-3plus': { bg: '/seeker-ineligible-3plus-bg.png', xPct: 0.45, yPct: 0.13, align: 'left', filename: 'seeker-ineligible.png',  shareText: 'Test Text' },
+      'no-account':       { bg: ['/seeker-no-account-bg-0.png', '/seeker-no-account-bg-1.png', '/seeker-no-account-bg-2.png'], xPct: 0.08, yPct: 0.08, align: 'left', filename: 'seeker-no-account.png', shareText: 'Test Text' },
     };
 
     let _currentState = 'eligible';
@@ -426,15 +435,18 @@
       ctx.fillStyle    = '#ffffff';
       ctx.fillText(label, Math.round(W * cfg.xPct), Math.round(H * cfg.yPct));
 
+      document.getElementById('shareText').textContent = cfg.shareText;
       shareSection.classList.add('show');
     }
 
     async function copyShareImage(btn) {
+      const text = document.getElementById('shareText').textContent;
       try {
-        // Pass the blob as a Promise inside ClipboardItem so it resolves
-        // within the user-gesture context — required by the Clipboard API.
         await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': new Promise(resolve => shareCanvas.toBlob(resolve, 'image/png')) })
+          new ClipboardItem({
+            'image/png': new Promise(resolve => shareCanvas.toBlob(resolve, 'image/png')),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          })
         ]);
         btn.textContent = 'Copied!';
         setTimeout(() => btn.textContent = 'Copy Image', 2000);
