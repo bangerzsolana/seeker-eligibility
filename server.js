@@ -109,6 +109,34 @@ async function syncLatestPurchases() {
   }
 }
 
+// ── Username sync ──────────────────────────────────────────
+async function syncUsernames() {
+  if (!db) return;
+  try {
+    const res = await fetch('https://api.gib.meme/account/users/list4adminz', {
+      method: 'POST',
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const raw  = await res.json();
+    const arr  = raw.list || (Array.isArray(raw) ? raw : []);
+    const users = arr.filter(u => Array.isArray(u) && u[0] && u[1]).map(u => ({ wallet: u[0], username: u[1] }));
+    const BATCH = 500;
+    for (let i = 0; i < users.length; i += BATCH) {
+      const batch  = users.slice(i, i + BATCH);
+      const vals   = batch.map((_, j) => `($${j * 2 + 1}, $${j * 2 + 2})`).join(', ');
+      const params = batch.flatMap(u => [u.wallet, u.username]);
+      await db.query(
+        `INSERT INTO wallet_usernames (wallet, username) VALUES ${vals} ON CONFLICT (wallet) DO UPDATE SET username = EXCLUDED.username`,
+        params
+      );
+    }
+    console.log(`Username sync: ${users.length} users upserted`);
+  } catch (err) {
+    console.error('Username sync error:', err.message);
+  }
+}
+
 // ── Tournament number lookup ───────────────────────────────
 async function getTournamentNumbers(tourn_accts) {
   if (!tourn_accts.length) return [];
@@ -190,4 +218,8 @@ app.get('/api/check/:domain', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Seeker eligibility checker running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Seeker eligibility checker running on http://localhost:${PORT}`);
+  syncUsernames();
+  setInterval(syncUsernames, 60 * 60 * 1000); // re-sync every hour
+});
