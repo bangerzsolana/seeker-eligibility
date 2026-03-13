@@ -120,14 +120,20 @@ async function syncUsernames() {
     if (!res.ok) throw new Error(`API ${res.status}`);
     const raw  = await res.json();
     const arr  = raw.list || (Array.isArray(raw) ? raw : []);
-    const users = arr.filter(u => Array.isArray(u) && u[0] && u[1]).map(u => ({ wallet: u[0], username: u[1] }));
+    const users = arr.filter(u => Array.isArray(u) && u[0] && u[1]).map(u => ({
+      wallet: u[0], username: u[1],
+      registeredAt: u[3] ? new Date(u[3] * 1000).toISOString() : null,
+    }));
     const BATCH = 500;
     for (let i = 0; i < users.length; i += BATCH) {
       const batch  = users.slice(i, i + BATCH);
-      const vals   = batch.map((_, j) => `($${j * 2 + 1}, $${j * 2 + 2})`).join(', ');
-      const params = batch.flatMap(u => [u.wallet, u.username]);
+      const vals   = batch.map((_, j) => `($${j*3+1}, $${j*3+2}, $${j*3+3})`).join(', ');
+      const params = batch.flatMap(u => [u.wallet, u.username, u.registeredAt]);
       await db.query(
-        `INSERT INTO wallet_usernames (wallet, username) VALUES ${vals} ON CONFLICT (wallet) DO UPDATE SET username = EXCLUDED.username`,
+        `INSERT INTO wallet_usernames (wallet, username, registered_at) VALUES ${vals}
+         ON CONFLICT (wallet) DO UPDATE SET
+           username = EXCLUDED.username,
+           registered_at = COALESCE(wallet_usernames.registered_at, EXCLUDED.registered_at)`,
         params
       );
     }
