@@ -122,18 +122,22 @@ async function syncUsernames() {
     const arr  = raw.list || (Array.isArray(raw) ? raw : []);
     const users = arr.filter(u => Array.isArray(u) && u[0] && u[1]).map(u => ({
       wallet: u[0], username: u[1],
-      registeredAt: u[3] ? new Date(u[3] * 1000).toISOString() : null,
+      registeredAt:   u[3] ? new Date(u[3] * 1000).toISOString() : null,
+      webSessions:    u[2]?.d?.web    ?? null,
+      mobileSessions: u[2]?.d?.mobile ?? null,
     }));
     const BATCH = 500;
     for (let i = 0; i < users.length; i += BATCH) {
       const batch  = users.slice(i, i + BATCH);
-      const vals   = batch.map((_, j) => `($${j*3+1}, $${j*3+2}, $${j*3+3})`).join(', ');
-      const params = batch.flatMap(u => [u.wallet, u.username, u.registeredAt]);
+      const vals   = batch.map((_, j) => `($${j*5+1}, $${j*5+2}, $${j*5+3}, $${j*5+4}, $${j*5+5})`).join(', ');
+      const params = batch.flatMap(u => [u.wallet, u.username, u.registeredAt, u.webSessions, u.mobileSessions]);
       await db.query(
-        `INSERT INTO wallet_usernames (wallet, username, registered_at) VALUES ${vals}
+        `INSERT INTO wallet_usernames (wallet, username, registered_at, web_sessions, mobile_sessions) VALUES ${vals}
          ON CONFLICT (wallet) DO UPDATE SET
-           username = EXCLUDED.username,
-           registered_at = COALESCE(wallet_usernames.registered_at, EXCLUDED.registered_at)`,
+           username        = EXCLUDED.username,
+           registered_at   = COALESCE(wallet_usernames.registered_at, EXCLUDED.registered_at),
+           web_sessions    = EXCLUDED.web_sessions,
+           mobile_sessions = EXCLUDED.mobile_sessions`,
         params
       );
     }
