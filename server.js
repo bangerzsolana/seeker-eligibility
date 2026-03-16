@@ -123,22 +123,24 @@ async function syncUsernames() {
     const users = arr.filter(u => Array.isArray(u) && u[0] && u[1]).map(u => ({
       wallet: u[0], username: u[1],
       registeredAt:    u[3] ? new Date(u[3] * 1000).toISOString() : null,
-      webSessions:     u[2]?.d?.web    ?? null,
-      mobileSessions:  u[2]?.d?.mobile ?? null,
-      notificationsOn: u[2]?.n         ?? null,
+      webSessions:     u[2]?.d?.web     ?? null,
+      mobileSessions:  u[2]?.d?.mobile  ?? null,
+      androidSessions: u[2]?.d?.android ?? null,
+      notificationsOn: u[2]?.n          ?? null,
     }));
     const BATCH = 500;
     for (let i = 0; i < users.length; i += BATCH) {
       const batch  = users.slice(i, i + BATCH);
-      const vals   = batch.map((_, j) => `($${j*6+1}, $${j*6+2}, $${j*6+3}, $${j*6+4}, $${j*6+5}, $${j*6+6})`).join(', ');
-      const params = batch.flatMap(u => [u.wallet, u.username, u.registeredAt, u.webSessions, u.mobileSessions, u.notificationsOn]);
+      const vals   = batch.map((_, j) => `($${j*7+1}, $${j*7+2}, $${j*7+3}, $${j*7+4}, $${j*7+5}, $${j*7+6}, $${j*7+7})`).join(', ');
+      const params = batch.flatMap(u => [u.wallet, u.username, u.registeredAt, u.webSessions, u.mobileSessions, u.androidSessions, u.notificationsOn]);
       await db.query(
-        `INSERT INTO wallet_usernames (wallet, username, registered_at, web_sessions, mobile_sessions, notifications_on) VALUES ${vals}
+        `INSERT INTO wallet_usernames (wallet, username, registered_at, web_sessions, mobile_sessions, android_sessions, notifications_on) VALUES ${vals}
          ON CONFLICT (wallet) DO UPDATE SET
            username         = EXCLUDED.username,
            registered_at    = COALESCE(wallet_usernames.registered_at, EXCLUDED.registered_at),
            web_sessions     = EXCLUDED.web_sessions,
            mobile_sessions  = EXCLUDED.mobile_sessions,
+           android_sessions = EXCLUDED.android_sessions,
            notifications_on = EXCLUDED.notifications_on`,
         params
       );
